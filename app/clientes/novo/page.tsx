@@ -1,20 +1,45 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+function gerarAlias(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const parte1 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  const parte2 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `${parte1}-${parte2}`
+}
+
 export default function NovoClientePage() {
   const router = useRouter()
-  const [form, setForm] = useState({ nome: '', tipo: 'Factoring', contato_nome: '', contato_email: '' })
+  const [form, setForm] = useState({
+    nome: '', tipo: 'Factoring', contato_nome: '', contato_email: '', alias: ''
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [copiado, setCopiado] = useState(false)
+
+  useEffect(() => {
+    setForm(f => ({ ...f, alias: gerarAlias() }))
+  }, [])
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  function regenerarAlias() {
+    setForm(f => ({ ...f, alias: gerarAlias() }))
+    setCopiado(false)
+  }
+
+  function copiarAlias() {
+    navigator.clipboard.writeText(form.alias)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error: err } = await supabase.from('clientes').insert(form)
+    const { error: err } = await (supabase as any).from('clientes').insert(form)
     if (err) { setError(err.message); setLoading(false); return }
     router.push('/clientes')
   }
@@ -60,6 +85,28 @@ export default function NovoClientePage() {
             <input type="email" value={form.contato_email} onChange={e => set('contato_email', e.target.value)}
                    placeholder="email@empresa.com" className={inputCls} />
           </div>
+        </div>
+
+        {/* Alias */}
+        <div>
+          <label className={labelCls}>Código de acesso (alias)</label>
+          <div className="flex gap-2 items-center">
+            <div className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 font-mono tracking-widest font-semibold text-gray-800">
+              {form.alias}
+            </div>
+            <button type="button" onClick={copiarAlias}
+                    className="px-3 py-2 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    style={{ color: copiado ? '#3A8C4E' : '#6b7280' }}>
+              {copiado ? '✓ Copiado' : 'Copiar'}
+            </button>
+            <button type="button" onClick={regenerarAlias}
+                    className="px-3 py-2 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 transition-colors">
+              ↻ Novo
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            Compartilhe este código com os participantes da empresa para que possam se cadastrar.
+          </p>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

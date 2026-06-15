@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [confirmar, setConfirmar] = useState('')
+  const [alias, setAlias]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [sucesso, setSucesso]   = useState('')
@@ -22,6 +23,7 @@ export default function LoginPage() {
     setEmail('')
     setPassword('')
     setConfirmar('')
+    setAlias('')
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -51,18 +53,27 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
 
-    if (password !== confirmar) {
-      setError('As senhas não coincidem.')
-      return
-    }
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.')
-      return
-    }
+    if (password !== confirmar) { setError('As senhas não coincidem.'); return }
+    if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return }
 
     setLoading(true)
 
-    const { error: err } = await supabase.auth.signUp({
+    // 1. Valida o alias e busca o cliente
+    const aliasUpper = alias.trim().toUpperCase()
+    const { data: cliente, error: aliasErr } = await (supabase as any)
+      .from('clientes')
+      .select('id, nome')
+      .eq('alias', aliasUpper)
+      .single()
+
+    if (aliasErr || !cliente) {
+      setError('Código da empresa inválido. Verifique o código fornecido pela equipe MSys.')
+      setLoading(false)
+      return
+    }
+
+    // 2. Cria o usuário no Supabase Auth
+    const { data: authData, error: signUpErr } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -70,11 +81,26 @@ export default function LoginPage() {
       }
     })
 
-    if (err) { setError(err.message); setLoading(false); return }
+    if (signUpErr || !authData.user) {
+      setError(signUpErr?.message || 'Erro ao criar conta.')
+      setLoading(false)
+      return
+    }
 
-    setSucesso('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
+    // 3. Aguarda o trigger criar o profile e atualiza com cliente_id
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    await (supabase as any)
+      .from('profiles')
+      .update({ cliente_id: cliente.id })
+      .eq('id', authData.user.id)
+
+    setSucesso('Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.')
     setLoading(false)
   }
+
+  const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
+  const labelCls = "block text-xs text-gray-500 mb-1.5 font-medium"
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -94,106 +120,78 @@ export default function LoginPage() {
 
         {/* Abas */}
         <div className="flex mb-4 bg-white border border-gray-200 rounded-xl p-1">
-          <button
-            type="button"
-            onClick={() => trocarModo('login')}
+          <button type="button" onClick={() => trocarModo('login')}
             className="flex-1 py-2 text-sm font-medium rounded-lg transition-colors"
-            style={{
-              background: modo === 'login' ? '#3A8C4E' : 'transparent',
-              color: modo === 'login' ? 'white' : '#6b7280',
-            }}
-          >
+            style={{ background: modo === 'login' ? '#3A8C4E' : 'transparent', color: modo === 'login' ? 'white' : '#6b7280' }}>
             Entrar
           </button>
-          <button
-            type="button"
-            onClick={() => trocarModo('cadastro')}
+          <button type="button" onClick={() => trocarModo('cadastro')}
             className="flex-1 py-2 text-sm font-medium rounded-lg transition-colors"
-            style={{
-              background: modo === 'cadastro' ? '#3A8C4E' : 'transparent',
-              color: modo === 'cadastro' ? 'white' : '#6b7280',
-            }}
-          >
+            style={{ background: modo === 'cadastro' ? '#3A8C4E' : 'transparent', color: modo === 'cadastro' ? 'white' : '#6b7280' }}>
             Criar conta
           </button>
         </div>
 
         {/* Form */}
-        <form
-          onSubmit={modo === 'login' ? handleLogin : handleCadastro}
-          className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm"
-        >
+        <form onSubmit={modo === 'login' ? handleLogin : handleCadastro}
+              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+
           {error && (
-            <div className="mb-4 p-3 rounded-lg text-sm"
-                 style={{ background: '#FCEBEB', color: '#A32D2D' }}>
+            <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#FCEBEB', color: '#A32D2D' }}>
               {error}
             </div>
           )}
           {sucesso && (
-            <div className="mb-4 p-3 rounded-lg text-sm"
-                 style={{ background: '#EBF5EE', color: '#2D6E3E' }}>
+            <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#EBF5EE', color: '#2D6E3E' }}>
               {sucesso}
             </div>
           )}
 
           {modo === 'cadastro' && (
-            <div className="mb-4">
-              <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome completo</label>
-              <input
-                type="text"
-                required
-                value={nome}
-                onChange={e => setNome(e.target.value)}
-                placeholder="Seu nome"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
-              />
-            </div>
+            <>
+              <div className="mb-4">
+                <label className={labelCls}>Nome completo</label>
+                <input type="text" required value={nome} onChange={e => setNome(e.target.value)}
+                       placeholder="Seu nome completo" className={inputCls} />
+              </div>
+
+              <div className="mb-4">
+                <label className={labelCls}>Código da empresa</label>
+                <input type="text" required value={alias}
+                       onChange={e => setAlias(e.target.value.toUpperCase())}
+                       placeholder="Ex: XK7-M3P2"
+                       className={inputCls + " font-mono tracking-widest uppercase"}
+                       maxLength={10} />
+                <p className="text-xs text-gray-400 mt-1">
+                  Código fornecido pela equipe MSys da sua empresa.
+                </p>
+              </div>
+            </>
           )}
 
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">E-mail</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com.br"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
-            />
+            <label className={labelCls}>E-mail</label>
+            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                   placeholder="seu@email.com.br" className={inputCls} />
           </div>
 
           <div className={modo === 'login' ? 'mb-6' : 'mb-4'}>
-            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Senha</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
-            />
+            <label className={labelCls}>Senha</label>
+            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                   placeholder="••••••••" className={inputCls} />
           </div>
 
           {modo === 'cadastro' && (
             <div className="mb-6">
-              <label className="block text-xs text-gray-500 mb-1.5 font-medium">Confirmar senha</label>
-              <input
-                type="password"
-                required
-                value={confirmar}
-                onChange={e => setConfirmar(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
-              />
+              <label className={labelCls}>Confirmar senha</label>
+              <input type="password" required value={confirmar} onChange={e => setConfirmar(e.target.value)}
+                     placeholder="••••••••" className={inputCls} />
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ background: loading ? '#7AB889' : '#3A8C4E' }}
-          >
+          <button type="submit" disabled={loading}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ background: loading ? '#7AB889' : '#3A8C4E' }}>
             {loading
               ? (modo === 'login' ? 'Entrando...' : 'Criando conta...')
               : (modo === 'login' ? 'Entrar' : 'Criar conta')}

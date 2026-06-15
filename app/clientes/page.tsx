@@ -3,9 +3,9 @@ import Link from 'next/link'
 
 export default async function ClientesPage() {
   const supabase = createSupabaseServer()
-  const { data: clientes } = await supabase
+  const { data: clientes } = await (supabase as any)
     .from('clientes')
-    .select('*, treinamentos(count)')
+    .select('*, treinamentos(count), profiles(count)')
     .order('nome')
 
   return (
@@ -32,7 +32,7 @@ export default async function ClientesPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-100">
               <tr>
-                {['Empresa','Tipo','Contato','E-mail','Treinamentos',''].map(h => (
+                {['Empresa','Tipo','Contato','Código (alias)','Participantes','Treinamentos',''].map(h => (
                   <th key={h} className="px-5 py-3 text-left text-xs text-gray-400 font-medium">{h}</th>
                 ))}
               </tr>
@@ -47,7 +47,14 @@ export default async function ClientesPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-gray-600">{c.contato_nome || '—'}</td>
-                  <td className="px-5 py-3 text-gray-500 text-xs">{c.contato_email || '—'}</td>
+                  <td className="px-5 py-3">
+                    <span className="font-mono text-xs font-semibold px-2 py-1 bg-gray-100 rounded text-gray-700">
+                      {c.alias}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-gray-500">
+                    {c.profiles?.[0]?.count ?? 0}
+                  </td>
                   <td className="px-5 py-3 text-gray-500">
                     {c.treinamentos?.[0]?.count ?? 0}
                   </td>
