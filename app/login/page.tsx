@@ -2,11 +2,27 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+type Modo = 'login' | 'cadastro'
+
 export default function LoginPage() {
+  const [modo, setModo] = useState<Modo>('login')
+  const [nome, setNome]         = useState('')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
+  const [confirmar, setConfirmar] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+  const [sucesso, setSucesso]   = useState('')
+
+  function trocarModo(m: Modo) {
+    setModo(m)
+    setError('')
+    setSucesso('')
+    setNome('')
+    setEmail('')
+    setPassword('')
+    setConfirmar('')
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -16,14 +32,12 @@ export default function LoginPage() {
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     if (err) { setError('E-mail ou senha incorretos.'); setLoading(false); return }
 
-    // Busca role para redirecionar corretamente
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', data.user.id)
       .single()
 
-    // Aguarda o cookie ser salvo antes de redirecionar
     await new Promise(resolve => setTimeout(resolve, 500))
 
     if (profile?.role === 'gestor') {
@@ -31,6 +45,35 @@ export default function LoginPage() {
     } else {
       window.location.replace('/portal')
     }
+  }
+
+  async function handleCadastro(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if (password !== confirmar) {
+      setError('As senhas não coincidem.')
+      return
+    }
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres.')
+      return
+    }
+
+    setLoading(true)
+
+    const { error: err } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { nome, role: 'participante' }
+      }
+    })
+
+    if (err) { setError(err.message); setLoading(false); return }
+
+    setSucesso('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
+    setLoading(false)
   }
 
   return (
@@ -46,17 +89,64 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-semibold text-gray-900">MSys Treinamentos</h1>
-          <p className="text-sm text-gray-500 mt-1">Acesse sua conta</p>
+          <p className="text-sm text-gray-500 mt-1">Plataforma de Capacitação</p>
+        </div>
+
+        {/* Abas */}
+        <div className="flex mb-4 bg-white border border-gray-200 rounded-xl p-1">
+          <button
+            type="button"
+            onClick={() => trocarModo('login')}
+            className="flex-1 py-2 text-sm font-medium rounded-lg transition-colors"
+            style={{
+              background: modo === 'login' ? '#3A8C4E' : 'transparent',
+              color: modo === 'login' ? 'white' : '#6b7280',
+            }}
+          >
+            Entrar
+          </button>
+          <button
+            type="button"
+            onClick={() => trocarModo('cadastro')}
+            className="flex-1 py-2 text-sm font-medium rounded-lg transition-colors"
+            style={{
+              background: modo === 'cadastro' ? '#3A8C4E' : 'transparent',
+              color: modo === 'cadastro' ? 'white' : '#6b7280',
+            }}
+          >
+            Criar conta
+          </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleLogin}
-              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-
+        <form
+          onSubmit={modo === 'login' ? handleLogin : handleCadastro}
+          className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm"
+        >
           {error && (
             <div className="mb-4 p-3 rounded-lg text-sm"
                  style={{ background: '#FCEBEB', color: '#A32D2D' }}>
               {error}
+            </div>
+          )}
+          {sucesso && (
+            <div className="mb-4 p-3 rounded-lg text-sm"
+                 style={{ background: '#EBF5EE', color: '#2D6E3E' }}>
+              {sucesso}
+            </div>
+          )}
+
+          {modo === 'cadastro' && (
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome completo</label>
+              <input
+                type="text"
+                required
+                value={nome}
+                onChange={e => setNome(e.target.value)}
+                placeholder="Seu nome"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
+              />
             </div>
           )}
 
@@ -72,7 +162,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="mb-6">
+          <div className={modo === 'login' ? 'mb-6' : 'mb-4'}>
             <label className="block text-xs text-gray-500 mb-1.5 font-medium">Senha</label>
             <input
               type="password"
@@ -84,17 +174,39 @@ export default function LoginPage() {
             />
           </div>
 
+          {modo === 'cadastro' && (
+            <div className="mb-6">
+              <label className="block text-xs text-gray-500 mb-1.5 font-medium">Confirmar senha</label>
+              <input
+                type="password"
+                required
+                value={confirmar}
+                onChange={e => setConfirmar(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
             style={{ background: loading ? '#7AB889' : '#3A8C4E' }}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading
+              ? (modo === 'login' ? 'Entrando...' : 'Criando conta...')
+              : (modo === 'login' ? 'Entrar' : 'Criar conta')}
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        {modo === 'cadastro' && (
+          <p className="text-center text-xs text-gray-400 mt-4 px-4">
+            Contas de gestor, agente e admin são criadas pela equipe MSys.
+          </p>
+        )}
+
+        <p className="text-center text-xs text-gray-400 mt-4">
           MSys Tecnologia · Plataforma de Capacitação
         </p>
       </div>
