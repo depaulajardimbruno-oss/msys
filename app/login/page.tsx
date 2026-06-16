@@ -81,8 +81,18 @@ export default function LoginPage() {
       }
     })
 
-    if (signUpErr || !authData.user) {
-      setError(signUpErr?.message || 'Erro ao criar conta.')
+    if (signUpErr) {
+      if (signUpErr.message?.toLowerCase().includes('already registered') || signUpErr.message?.toLowerCase().includes('already been registered')) {
+        setError('Este e-mail já está cadastrado. Tente fazer login.')
+      } else {
+        setError('Erro ao criar conta: ' + signUpErr.message)
+      }
+      setLoading(false)
+      return
+    }
+
+    if (!authData.user) {
+      setError('Erro ao criar conta. Tente novamente.')
       setLoading(false)
       return
     }
