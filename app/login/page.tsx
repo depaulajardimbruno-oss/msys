@@ -60,13 +60,13 @@ export default function LoginPage() {
 
     // 1. Valida o alias e busca o cliente
     const aliasUpper = alias.trim().toUpperCase()
-    const { data: cliente, error: aliasErr } = await (supabase as any)
+    const { data: cliente } = await (supabase as any)
       .from('clientes')
       .select('id, nome')
       .eq('alias', aliasUpper)
-      .single()
+      .maybeSingle()
 
-    if (aliasErr || !cliente) {
+    if (!cliente) {
       setError('Código da empresa inválido. Verifique o código fornecido pela equipe MSys.')
       setLoading(false)
       return
