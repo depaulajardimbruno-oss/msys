@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard, BookOpen, Calendar, Building2,
-  RefreshCw, User, Star, BarChart2, LogOut, Zap
+  RefreshCw, User, Star, BarChart2, LogOut, Zap, Users
 } from 'lucide-react'
 
 interface NavItem {
@@ -19,6 +19,7 @@ const gestorNav: NavItem[] = [
   {                    href: '/treinamentos',    label: 'Treinamentos',  icon: <BookOpen size={16}/> },
   {                    href: '/calendario',      label: 'Calendário',    icon: <Calendar size={16}/> },
   {                    href: '/clientes',        label: 'Clientes',      icon: <Building2 size={16}/> },
+  {                    href: '/participantes/novo', label: 'Participantes', icon: <Users size={16}/> },
   {                    href: '/revalidacoes',    label: 'Revalidações',  icon: <RefreshCw size={16}/> },
   { section: 'Análise',href: '/relatorios',     label: 'Relatórios',    icon: <BarChart2 size={16}/> },
 ]

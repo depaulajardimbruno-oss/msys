@@ -59,11 +59,18 @@ export default async function ClientesPage() {
                     {c.treinamentos?.[0]?.count ?? 0}
                   </td>
                   <td className="px-5 py-3">
-                    <Link href={`/treinamentos/novo?cliente=${c.id}`}
-                          className="text-xs font-medium hover:underline"
-                          style={{ color: '#3A8C4E' }}>
-                      + Treinamento
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/treinamentos/novo?cliente=${c.id}`}
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: '#3A8C4E' }}>
+                        + Treinamento
+                      </Link>
+                      <Link href={`/participantes/novo?cliente=${c.id}`}
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: '#3A8C4E' }}>
+                        + Participante
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

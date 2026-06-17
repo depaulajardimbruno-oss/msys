@@ -58,6 +58,7 @@ git push -u origin main
 |------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | sua Project URL do Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sua anon key do Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | sua service_role key do Supabase (Settings → API) — **nunca** use o prefixo `NEXT_PUBLIC_` nessa variável, ela precisa ficar restrita ao servidor |
 
 4. Clique em **Deploy** — o site estará no ar em ~2 minutos!
 
