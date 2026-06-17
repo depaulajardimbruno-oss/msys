@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 type Modo = 'login' | 'cadastro'
 
 export default function LoginPage() {
-  const [modo, setModo]         = useState<Modo>('login')
+  const [modo, setModo] = useState<Modo>('login')
   const [nome, setNome]         = useState('')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
@@ -32,20 +32,13 @@ export default function LoginPage() {
     setError('')
 
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    if (err) { setError('E-mail ou senha incorretos.'); setLoading(false); return }
 
-    if (err) {
-      // Trata confirmação de e-mail pendente separadamente
-      if (err.message?.toLowerCase().includes('email not confirmed')) {
-        setError('Confirme seu e-mail antes de fazer login. Verifique sua caixa de entrada.')
-      } else {
-        setError('E-mail ou senha incorretos.')
-      }
-      setLoading(false)
-      return
-    }
-
-    if (!data.user) {
-      setError('Erro ao fazer login. Tente novamente.')
+    // Garante que a sessão foi de fato persistida (cookies) antes de
+    // navegar — em vez de confiar num tempo fixo, confirma com getSession().
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      setError('Não foi possível iniciar a sessão. Tente novamente.')
       setLoading(false)
       return
     }
@@ -68,19 +61,19 @@ export default function LoginPage() {
     setError('')
 
     if (password !== confirmar) { setError('As senhas não coincidem.'); return }
-    if (password.length < 6)    { setError('A senha deve ter pelo menos 6 caracteres.'); return }
+    if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return }
 
     setLoading(true)
 
     // 1. Valida o alias e busca o cliente
     const aliasUpper = alias.trim().toUpperCase()
-    const { data: cliente, error: clienteErr } = await supabase
+    const { data: cliente } = await (supabase as any)
       .from('clientes')
       .select('id, nome')
       .eq('alias', aliasUpper)
       .maybeSingle()
 
-    if (clienteErr || !cliente) {
+    if (!cliente) {
       setError('Código da empresa inválido. Verifique o código fornecido pela equipe MSys.')
       setLoading(false)
       return
@@ -91,14 +84,12 @@ export default function LoginPage() {
       email,
       password,
       options: {
-        data: { nome, role: 'participante' },
-        // emailRedirectTo não é necessário se confirmação estiver desativada no Supabase
+        data: { nome, role: 'participante' }
       }
     })
 
     if (signUpErr) {
-      const msg = signUpErr.message?.toLowerCase() ?? ''
-      if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('user already registered')) {
+      if (signUpErr.message?.toLowerCase().includes('already registered') || signUpErr.message?.toLowerCase().includes('already been registered')) {
         setError('Este e-mail já está cadastrado. Tente fazer login.')
       } else {
         setError('Erro ao criar conta: ' + signUpErr.message)
@@ -114,25 +105,15 @@ export default function LoginPage() {
     }
 
     // 3. Aguarda o trigger criar o profile e atualiza com cliente_id
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
-    const { error: updateErr } = await supabase
+    await (supabase as any)
       .from('profiles')
       .update({ cliente_id: cliente.id })
       .eq('id', authData.user.id)
 
-    if (updateErr) {
-      console.error('Erro ao vincular cliente:', updateErr)
-    }
-
-    // 4. Se a sessão já está ativa (confirmação de e-mail desabilitada no Supabase),
-    //    redireciona direto. Caso contrário, pede confirmação.
-    if (authData.session) {
-      window.location.replace('/portal')
-    } else {
-      setSucesso('Conta criada! Verifique seu e-mail para confirmar o cadastro e depois faça login.')
-      setLoading(false)
-    }
+    setSucesso('Conta criada com sucesso! Verifique seu e-mail para confirmar o cadastro.')
+    setLoading(false)
   }
 
   const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-green-600 bg-white"
@@ -195,9 +176,9 @@ export default function LoginPage() {
                 <label className={labelCls}>Código da empresa</label>
                 <input type="text" required value={alias}
                        onChange={e => setAlias(e.target.value.toUpperCase())}
-                       placeholder="Ex: FSUL-2024"
+                       placeholder="Ex: XK7-M3P2"
                        className={inputCls + " font-mono tracking-widest uppercase"}
-                       maxLength={20} />
+                       maxLength={10} />
                 <p className="text-xs text-gray-400 mt-1">
                   Código fornecido pela equipe MSys da sua empresa.
                 </p>
@@ -236,7 +217,7 @@ export default function LoginPage() {
 
         {modo === 'cadastro' && (
           <p className="text-center text-xs text-gray-400 mt-4 px-4">
-            Contas de gestor são criadas pela equipe MSys.
+            Contas de gestor, agente e admin são criadas pela equipe MSys.
           </p>
         )}
 

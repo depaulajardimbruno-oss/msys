@@ -13,10 +13,20 @@ export function createSupabaseServer() {
           return cookieStore.get(name)?.value
         },
         set(name: string, value: string, options: any) {
-          try { cookieStore.set({ name, value, ...options }) } catch {}
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch {
+            // Chamado de um Server Component (render), onde não é possível
+            // escrever cookies. Isso é esperado e seguro de ignorar quando
+            // o middleware já está renovando a sessão em paralelo.
+          }
         },
         remove(name: string, options: any) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch {}
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch {
+            // Mesmo caso do set() acima: ignorável em Server Components.
+          }
         },
       },
     }
