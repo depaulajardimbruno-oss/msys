@@ -11,6 +11,7 @@ create table clientes (
   id            uuid primary key default uuid_generate_v4(),
   nome          text not null,
   tipo          text not null default 'Factoring',
+  alias         text unique,          -- código de acesso para cadastro de participantes (ex: XK7-M3P2)
   contato_nome  text,
   contato_email text,
   created_at    timestamptz default now()
@@ -104,21 +105,24 @@ create table avaliacoes (
 -- ROW LEVEL SECURITY (RLS)
 -- =============================================
 
-alter table clientes     enable row level security;
-alter table profiles     enable row level security;
-alter table treinamentos enable row level security;
-alter table materiais    enable row level security;
-alter table sessoes      enable row level security;
+alter table clientes      enable row level security;
+alter table profiles      enable row level security;
+alter table treinamentos  enable row level security;
+alter table materiais     enable row level security;
+alter table sessoes       enable row level security;
 alter table participantes enable row level security;
-alter table avaliacoes   enable row level security;
+alter table avaliacoes    enable row level security;
 
 -- Gestores veem tudo
-create policy "gestores_all" on clientes     for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
-create policy "gestores_all" on treinamentos for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
-create policy "gestores_all" on materiais    for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
-create policy "gestores_all" on sessoes      for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+create policy "gestores_all" on clientes      for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+create policy "gestores_all" on treinamentos  for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+create policy "gestores_all" on materiais     for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+create policy "gestores_all" on sessoes       for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
 create policy "gestores_all" on participantes for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
-create policy "gestores_all" on avaliacoes   for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+create policy "gestores_all" on avaliacoes    for all using (exists (select 1 from profiles where id = auth.uid() and role = 'gestor'));
+
+-- Participantes podem ler clientes (necessário para validar alias no cadastro)
+create policy "clientes_read_anon" on clientes for select using (true);
 
 -- Cada usuário vê seu próprio profile
 create policy "profile_proprio" on profiles for all using (id = auth.uid());
@@ -149,9 +153,9 @@ create policy "participante_avaliacao_select" on avaliacoes for select
 -- Descomente abaixo para inserir dados de demonstração
 
 /*
-insert into clientes (nome, tipo, contato_nome, contato_email) values
-  ('Factoring Sul Ltda', 'Factoring', 'Marco Antunes', 'marco@factoringsul.com.br'),
-  ('Nexo FIDC', 'FIDC', 'Renata Gomes', 'renata@nexofidc.com.br'),
-  ('Crédito Ágil ESC', 'ESC', 'Túlio Santos', 'tulio@creditoagil.com.br'),
-  ('Alpha Securitizadora', 'Securitizadora', 'Carla Fonseca', 'carla@alphasec.com.br');
+insert into clientes (nome, tipo, alias, contato_nome, contato_email) values
+  ('Factoring Sul Ltda',   'Factoring',      'FSUL-2024', 'Marco Antunes',  'marco@factoringsul.com.br'),
+  ('Nexo FIDC',            'FIDC',           'NEXO-2024', 'Renata Gomes',   'renata@nexofidc.com.br'),
+  ('Crédito Ágil ESC',     'ESC',            'CAGIL-24',  'Túlio Santos',   'tulio@creditoagil.com.br'),
+  ('Alpha Securitizadora', 'Securitizadora', 'ALPHA-24',  'Carla Fonseca',  'carla@alphasec.com.br');
 */
