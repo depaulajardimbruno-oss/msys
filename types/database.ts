@@ -16,6 +16,7 @@ export interface Cliente {
   id: string
   nome: string
   tipo: string          // Factoring, FIDC, ESC, Securitizadora…
+  alias: string | null
   contato_nome: string
   contato_email: string
   created_at: string

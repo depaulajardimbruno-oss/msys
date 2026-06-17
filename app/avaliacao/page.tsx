@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const PERGUNTAS = {
@@ -22,7 +22,16 @@ const PERGUNTAS = {
 const db = supabase as any
 
 export default function AvaliacaoPage() {
+  return (
+    <Suspense fallback={null}>
+      <AvaliacaoForm />
+    </Suspense>
+  )
+}
+
+function AvaliacaoForm() {
   const router  = useRouter()
+  const searchParams = useSearchParams()
   const [nota, setNota] = useState(0)
   const [hover, setHover] = useState(0)
   const [respostas, setRespostas] = useState<Record<string,string>>({})
@@ -31,36 +40,49 @@ export default function AvaliacaoPage() {
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [jaAvaliou, setJaAvaliou] = useState(false)
+  const [naoEncontrado, setNaoEncontrado] = useState(false)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Busca treinamento mais recente
-      const { data: p } = await db
-        .from('participantes')
-        .select('treinamento_id')
-        .eq('profile_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const tId = searchParams.get('treinamento_id')
+      if (!tId) { setNaoEncontrado(true); return }
 
-      if (!p) return
-      setTreinamentoId(p.treinamento_id)
+      // Confirma que esse treinamento pertence ao mesmo cliente do participante
+      // (a RLS do banco já bloqueia o insert indevido, isso é só para a UI)
+      const { data: profile } = await db
+        .from('profiles')
+        .select('cliente_id')
+        .eq('id', user.id)
+        .single()
+
+      const { data: treinamento } = await db
+        .from('treinamentos')
+        .select('id, cliente_id')
+        .eq('id', tId)
+        .single()
+
+      if (!treinamento || treinamento.cliente_id !== profile?.cliente_id) {
+        setNaoEncontrado(true)
+        return
+      }
+
+      setTreinamentoId(tId)
 
       // Verifica se já avaliou
       const { data: av } = await db
         .from('avaliacoes')
         .select('id')
-        .eq('treinamento_id', p.treinamento_id)
+        .eq('treinamento_id', tId)
         .eq('participante_id', user.id)
         .single()
 
       if (av) setJaAvaliou(true)
     }
     load()
-  }, [router])
+  }, [router, searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,6 +104,21 @@ export default function AvaliacaoPage() {
 
     setEnviado(true)
     setLoading(false)
+  }
+
+  if (naoEncontrado) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-full text-center">
+        <div className="text-5xl mb-4">🤔</div>
+        <h1 className="text-lg font-semibold text-gray-900 mb-2">Treinamento não encontrado</h1>
+        <p className="text-sm text-gray-500 max-w-xs">Acesse a avaliação a partir do botão na página do seu treinamento.</p>
+        <button onClick={() => router.push('/portal')}
+                className="mt-6 px-4 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ background: '#3A8C4E' }}>
+          Voltar ao portal
+        </button>
+      </div>
+    )
   }
 
   if (jaAvaliou || enviado) {

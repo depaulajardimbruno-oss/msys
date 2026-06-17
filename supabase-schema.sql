@@ -11,6 +11,7 @@ create table clientes (
   id            uuid primary key default uuid_generate_v4(),
   nome          text not null,
   tipo          text not null default 'Factoring',
+  alias         text unique,
   contato_nome  text,
   contato_email text,
   created_at    timestamptz default now()
@@ -30,11 +31,11 @@ create table profiles (
 create or replace function handle_new_user()
 returns trigger as $$
 begin
-  insert into profiles (id, nome, email)
+  insert into public.profiles (id, nome, email)
   values (new.id, coalesce(new.raw_user_meta_data->>'nome', 'Usuário'), new.email);
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
   after insert on auth.users
@@ -123,20 +124,35 @@ create policy "gestores_all" on avaliacoes   for all using (exists (select 1 fro
 -- Cada usuário vê seu próprio profile
 create policy "profile_proprio" on profiles for all using (id = auth.uid());
 
--- Participantes veem só seus treinamentos
+-- Participante vê os treinamentos da sua própria empresa (via cliente_id no profile)
 create policy "participante_treinamentos" on treinamentos for select
-  using (exists (select 1 from participantes where treinamento_id = treinamentos.id and profile_id = auth.uid()));
+  using (exists (
+    select 1 from profiles
+    where profiles.id = auth.uid() and profiles.cliente_id = treinamentos.cliente_id
+  ));
 
+-- Participante vê sessões de treinamentos da sua empresa
 create policy "participante_sessoes" on sessoes for select
-  using (exists (select 1 from participantes where treinamento_id = sessoes.treinamento_id and profile_id = auth.uid()));
+  using (exists (
+    select 1 from treinamentos
+    join profiles on profiles.cliente_id = treinamentos.cliente_id
+    where treinamentos.id = sessoes.treinamento_id and profiles.id = auth.uid()
+  ));
 
+-- Participante vê materiais de treinamentos da sua empresa
 create policy "participante_materiais" on materiais for select
-  using (exists (select 1 from participantes where treinamento_id = materiais.treinamento_id and profile_id = auth.uid()));
+  using (exists (
+    select 1 from treinamentos
+    join profiles on profiles.cliente_id = treinamentos.cliente_id
+    where treinamentos.id = materiais.treinamento_id and profiles.id = auth.uid()
+  ));
 
--- Participante pode avaliar seu próprio treinamento
+-- Participante pode avaliar qualquer treinamento da própria empresa
 create policy "participante_avaliacao" on avaliacoes for insert
   with check (participante_id = auth.uid() and exists (
-    select 1 from participantes where treinamento_id = avaliacoes.treinamento_id and profile_id = auth.uid()
+    select 1 from treinamentos
+    join profiles on profiles.cliente_id = treinamentos.cliente_id
+    where treinamentos.id = avaliacoes.treinamento_id and profiles.id = auth.uid()
   ));
 
 create policy "participante_avaliacao_select" on avaliacoes for select
