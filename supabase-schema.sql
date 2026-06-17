@@ -124,6 +124,21 @@ create policy "gestores_all" on avaliacoes   for all using (exists (select 1 fro
 -- Cada usuário vê seu próprio profile
 create policy "profile_proprio" on profiles for all using (id = auth.uid());
 
+-- Função auxiliar que verifica se o usuário atual é gestor, sem disparar
+-- recursão de RLS (roda com security definer, ignorando a policy abaixo
+-- na hora de fazer essa checagem interna).
+create or replace function public.is_gestor()
+returns boolean as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'gestor'
+  );
+$$ language sql security definer set search_path = public stable;
+
+-- Gestores podem ver todos os profiles (necessário para listar participantes)
+create policy "gestores_veem_profiles" on profiles for select
+  using (public.is_gestor());
+
 -- Participante vê os treinamentos da sua própria empresa (via cliente_id no profile)
 create policy "participante_treinamentos" on treinamentos for select
   using (exists (

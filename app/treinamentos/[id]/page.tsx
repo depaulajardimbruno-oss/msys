@@ -21,9 +21,10 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
     .order('inicio')
 
   const { data: participantes } = await supabase
-    .from('participantes')
-    .select('*, profile:profiles(nome, email)')
-    .eq('treinamento_id', t.id)
+    .from('profiles')
+    .select('id, nome, email')
+    .eq('cliente_id', t.cliente_id)
+    .eq('role', 'participante')
 
   const { data: materiais } = await supabase
     .from('materiais')
@@ -155,8 +156,8 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
               <ul className="divide-y divide-gray-50">
                 {participantes.map((p: any) => (
                   <li key={p.id} className="px-4 py-2.5 text-xs text-gray-600">
-                    <div className="font-medium text-gray-800">{p.profile?.nome}</div>
-                    <div className="text-gray-400">{p.profile?.email}</div>
+                    <div className="font-medium text-gray-800">{p.nome}</div>
+                    <div className="text-gray-400">{p.email}</div>
                   </li>
                 ))}
               </ul>
