@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import ParticipantesSection from '@/components/ParticipantesSection'
+import CronogramaSection from '@/components/CronogramaSection'
 
 export default async function TreinamentoDetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServer()
@@ -17,9 +18,9 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
 
   const { data: sessoes } = await supabase
     .from('sessoes')
-    .select('*')
+    .select('id, inicio_em, fim_em, descricao, concluida')
     .eq('treinamento_id', t.id)
-    .order('inicio')
+    .order('inicio_em', { nullsFirst: false })
 
   // Participantes inscritos especificamente neste treinamento
   const { data: inscricoes } = await supabase
@@ -89,28 +90,11 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
         <div className="col-span-2 space-y-5">
 
           {/* Sessões / Cronograma */}
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100">
-              <h2 className="text-sm font-medium text-gray-700">Cronograma da sessão</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {t.data_inicio ? format(new Date(t.data_inicio), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '—'}
-              </p>
-            </div>
-            {!sessoes?.length ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">Nenhuma sessão cadastrada.</p>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {sessoes.map((s: any) => (
-                  <div key={s.id} className="px-5 py-3 flex gap-4">
-                    <span className="text-xs text-gray-400 min-w-[100px] font-mono pt-0.5">
-                      {s.inicio} – {s.fim}
-                    </span>
-                    <span className="text-sm text-gray-700">{s.descricao}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <CronogramaSection
+            treinamentoId={t.id}
+            cargaHoraria={t.carga_horaria}
+            sessoes={sessoes ?? []}
+          />
 
           {/* Conteúdo abordado */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">

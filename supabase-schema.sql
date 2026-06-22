@@ -72,8 +72,11 @@ create table materiais (
 create table sessoes (
   id              uuid primary key default uuid_generate_v4(),
   treinamento_id  uuid references treinamentos(id) on delete cascade,
-  inicio          text not null,   -- ex: "09:00"
-  fim             text not null,   -- ex: "12:00"
+  inicio          text not null,   -- ex: "09:00" (legado, mantido por compatibilidade)
+  fim             text not null,   -- ex: "12:00" (legado, mantido por compatibilidade)
+  inicio_em       timestamptz,     -- data/hora real de início (estilo agenda)
+  fim_em          timestamptz,     -- data/hora real de término
+  concluida       boolean not null default false,
   descricao       text not null,
   created_at      timestamptz default now()
 );
