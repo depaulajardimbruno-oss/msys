@@ -2,6 +2,7 @@ import { createSupabaseServer } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import ParticipantesSection from '@/components/ParticipantesSection'
 
 export default async function TreinamentoDetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServer()
@@ -20,7 +21,18 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
     .eq('treinamento_id', t.id)
     .order('inicio')
 
-  const { data: participantes } = await supabase
+  // Participantes inscritos especificamente neste treinamento
+  const { data: inscricoes } = await supabase
+    .from('participantes')
+    .select('profile:profiles(id, nome, email)')
+    .eq('treinamento_id', t.id)
+
+  const inscritos = (inscricoes ?? [])
+    .map((i: any) => i.profile)
+    .filter(Boolean)
+
+  // Todos os participantes da empresa, para oferecer como opção de inscrição
+  const { data: disponiveis } = await supabase
     .from('profiles')
     .select('id, nome, email')
     .eq('cliente_id', t.cliente_id)
@@ -144,25 +156,11 @@ export default async function TreinamentoDetailPage({ params }: { params: { id: 
         <div className="space-y-5">
 
           {/* Participantes */}
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <h2 className="text-sm font-medium text-gray-700">
-                Participantes ({participantes?.length ?? 0})
-              </h2>
-            </div>
-            {!participantes?.length ? (
-              <p className="px-4 py-6 text-center text-xs text-gray-400">Nenhum participante.</p>
-            ) : (
-              <ul className="divide-y divide-gray-50">
-                {participantes.map((p: any) => (
-                  <li key={p.id} className="px-4 py-2.5 text-xs text-gray-600">
-                    <div className="font-medium text-gray-800">{p.nome}</div>
-                    <div className="text-gray-400">{p.email}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <ParticipantesSection
+            treinamentoId={t.id}
+            inscritos={inscritos}
+            disponiveis={disponiveis ?? []}
+          />
 
           {/* Avaliações */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
